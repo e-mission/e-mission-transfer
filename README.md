@@ -1,14 +1,14 @@
 # e-mission-transfer
-Scripts to import/export data from e-mission instances
+This repository contains scripts to import/export data from e-mission
+instances. Since there are multiple deployment scenarios, there is not likely
+to be one set of scripts that works for everybody.
 
-1. By sharing an encrypted file on a website
-    1. To export:
-       1. Export the data in the container
-       1. Zip it up
-       1. Copy it out
-       1. Encrypt it
-       1. Copy to a website
-    2. To import:
-       1. Download the file
-       1. Decrypt
-   
+So we can add scripts for various scenarios here as needed. If we do converge
+on a single deployment mechanism, we can delete this repository 🙂
+
+Scenario 1:
+    - Apache reverse proxy, also running basic website
+    - e-mission running in docker containers
+    - extract from docker
+    - encrypt on server
+    - publish on basic website
