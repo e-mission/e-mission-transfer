@@ -12,3 +12,10 @@ Scenario 1:
   - extract from docker
   - encrypt on server
   - publish on basic website
+
+Scenario 1:
+  - Apache reverse proxy, also running basic website
+  - e-mission running in docker containers
+  - mongodump from docker
+  - encrypt on server
+  - publish on basic website
