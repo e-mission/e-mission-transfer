@@ -5,34 +5,41 @@ import sys
 import os
 import logging
 import json
+import base64
+import uuid
 
 def run(command):
     os.system(command)
 
+def to_binary(uuidbson):
+    base64uuid = base64.b64encode(uuid.UUID(uuidbson["$uuid"]).bytes).decode("ASCII")
+    return {"$binary": base64uuid, "$type": "03"}
+
 def extract_uuids(container, channel):
     run("docker exec {container} bash -c 'source setup/activate.sh; ./e-mission-py.bash bin/debug/get_users_for_channel.py {channel} -o /tmp/{channel}.users'".format(container=container, channel=channel))
-    run("docker cp {container}:/tmp/{channel}.users".format(container=container, channel=channel))
-    uuid_list = open("/tmp/{channel}.users".format(channel=channel)).readlines()
-    uuid_query = {"user_id": {"$in": [{"$uuid": u.strip()} for u in uuid_list]}}
+    run("docker cp {container}:/tmp/{channel}.users /tmp".format(container=container, channel=channel))
+    uuid_list = json.load(open("/tmp/{channel}.users".format(channel=channel)))
+
+    uuid_query = {"user_id": {"$in": [to_binary(u["uuid"]) for u in uuid_list]}}
     queryFile = "/tmp/{channel}.queryfile".format(channel = channel)
-    uuid_query_file = json.dump(open(queryFile, "w"))
+    uuid_query_file = json.dump(uuid_query, open(queryFile, "w"))
 
 def dump_and_copy_channel_and_collection(container, channel, collection, out_file_name):
-    mongodump_cmd = ""
+    mongodump_cmd = "mongodump --db Stage_database"
     if collection is not None:
-        mongodump_cmd = mongodump_cmd + "--collection"+collection
+        mongodump_cmd = mongodump_cmd + " --collection "+collection
     if channel is not None:
         queryFile = "/tmp/{channel}.queryfile".format(channel = channel)
-        run("docker cp /tmp/{channel}.queryfile {container}:/tmp".format(channel=channel, container))
-        mongodump_cmd = mongodump_cmd + "--queryFile "+queryFile
+        run("docker cp /tmp/{channel}.queryfile {container}:/tmp".format(channel=channel, container=container))
+        mongodump_cmd = mongodump_cmd + " --queryFile "+queryFile
     print("About to run command "+mongodump_cmd)
-    run("docker exec {container} cd /tmp && bash -c '{cmd}'".format(cmd=mongodump_cmd))
-    run("docker exec {container} cd /tmp && bash -c 'tar -czvf /tmp/{file_name}.tar.gz /tmp/mongodump".format(
-        container=container, file_name = file_name)
-    run("docker cp {container}:/tmp/{file_name}.tar.gz /tmp/".format(container=container, file_name=file_name))
+    run("docker exec {container} bash -c 'cd /tmp && {cmd}'".format(container=container, cmd=mongodump_cmd))
+    run("docker exec {container} bash -c 'tar -czvf {file_name} /tmp/dump'".format(
+        container=container, file_name = out_file_name))
+    run("docker cp {container}:{file_name} /tmp/".format(container=container, file_name=out_file_name))
 
 def encrypt(gpg_key, file_name):
-    run("gpg --encrypt -r {recipient} {file_name}".format(recipient=gpg_key, file_name=file_name))
+    run("gpg --encrypt --trust-model always -r {recipient} {file_name}".format(recipient=gpg_key, file_name=file_name))
 
 def publish(file_name, out_dir):
     run("cp {file_name}.gpg {out_dir}".format(file_name=file_name, out_dir=out_dir))
@@ -57,5 +64,5 @@ if __name__ == '__main__':
     else:
         out_file_name = "/tmp/emission.tar.gz"
         dump_and_copy_channel(args.mongod_container, None, args.collection, out_file_name)
-    encrypt(args.gpg_key, file_name)
-    publish(file_name, args.outdir)
+    encrypt(args.gpg_key, out_file_name)
+    publish(out_file_name, args.outdir)
