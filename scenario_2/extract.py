@@ -29,10 +29,11 @@ def dump_manual_inputs(container, channel):
     mongodump_cmd = "mongodump --db Stage_database"
     mongodump_cmd = mongodump_cmd + " --collection Stage_timeseries"
     if channel is not None:
-        uuidqueryFile = "/tmp/{channel}.queryfile".format(channel = channel)
-        combo_query = json.load(open(queryFile))
-        combo_query["metadata.key"] = {"$regex": "/manual"}
-        print("combined query = "+combined_query)
+        uuidQueryFile = "/tmp/{channel}.queryfile".format(channel = channel)
+        combo_query = json.load(open(uuidQueryFile))
+        combo_query["metadata.key"] = {"$in": ["manual/mode_confirm", "manual/purpose_confirm"]}
+        # combo_query["metadata.key"] = {"$regex": "/manual/"}
+        print("combo query = %s" % combo_query)
         comboQueryFile = "/tmp/{channel}.comboqueryfile".format(channel = channel)
         json.dump(combo_query, open(comboQueryFile, "w"))
         run("docker cp /tmp/{channel}.comboqueryfile {container}:/tmp".format(channel=channel, container=container))
@@ -76,7 +77,7 @@ if __name__ == '__main__':
     if args.channel:
         out_file_name = "/tmp/mongodump_{channel}.tar.gz".format(channel=args.channel)
         extract_uuids(args.analysis_container, args.channel)
-        dump_manual_inputs(args.mongod_container):
+        dump_manual_inputs(args.mongod_container, args.channel)
         dump_and_copy_channel_and_collection(args.mongod_container, args.channel, args.collection, out_file_name)
     else:
         out_file_name = "/tmp/emission.tar.gz"
